@@ -1,0 +1,11 @@
+token.json
+client_secret.json
+emails.csv
+fr.csv
+token files/*
+bin/*
+include/*
+lib/*
+lib64/*
+share/*
+__pycache__/*
