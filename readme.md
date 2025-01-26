@@ -8,4 +8,3 @@
 
 # Todo List
 - Use concurrency to get message details in order to optimze time loading
-- Use singletton on google's service
