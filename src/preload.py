@@ -87,13 +87,17 @@ RULES = {
     'CLC': {
         'domains': ['@literaturaclassica.com.br'],
         'archive': True
+    },
+    'CitizenGo': {
+        'domains': ['@citizengo.org'],
+        'archive': True
     }
 }
 
 
 LOAD_FROM_CLOUD = True
 SAVE_DATA_CSV = False
-MAX_RESULTS = 200
+MAX_RESULTS = 10
 
 # Init
 gmail_api = GmailAPI('client_secret.json')
@@ -130,9 +134,14 @@ for label_string in RULES:
             if domain in rule_domains: # Match
                 if label is not None and "id" in label:
                     gmail_api.add_label_to_email(message["id"], label["id"])
+                    print(f"Marcador '{label_string}' adicionado ao e-mail: {extract_email(message['sender'])} / {message['subject']} / {message['id']}")
+
                 else:
                     label = gmail_api.create_label(label_string)
+                    print(f"Marcador '{label_string}' criado com sucesso")
+
                     gmail_api.add_label_to_email(message["id"], label["id"])
+                    print(f"Marcador '{label_string}' adicionado ao e-mail: {extract_email(message['sender'])} / {message['subject']} / {message['id']}")
 
                 if rule_acrhive:
                     gmail_api.archive_email(message["id"])

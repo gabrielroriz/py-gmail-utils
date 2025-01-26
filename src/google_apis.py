@@ -14,6 +14,7 @@ from google.auth.transport.requests import Request
 
 class GmailAPI:
     service = None
+    
     def __init__(self, client_file, api_name='gmail', api_version='v1', scopes=['https://mail.google.com/']):
         if self.service is None:
             self.service = self._create_service(client_file, api_name, api_version, scopes)
@@ -173,8 +174,6 @@ class GmailAPI:
                 id=msg_id,
                 body=request_body
             ).execute()
-
-            print(f"Marcador '{label_id}' adicionado ao e-mail com ID: {msg_id}")
             return response
         except Exception as e:
             print(f"Erro ao adicionar marcador ao e-mail: {e}")
@@ -265,8 +264,7 @@ class GmailAPI:
                 userId=user_id,
                 body=label_body
             ).execute()
-
-            print(f"Marcador '{label_name}' criado com sucesso.")
+            
             return response
         except Exception as e:
             print(f"Erro ao criar marcador '{label_name}': {e}")
