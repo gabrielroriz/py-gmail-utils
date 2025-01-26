@@ -1,4 +1,4 @@
-from google_apis import init_gmail_service, get_email_messages, get_email_message_details, add_label_to_email, list_labels, archive_email, create_label
+from src.google_apis import GmailAPI
 
 from src.csv_handler import dict_list_to_csv, csv_to_dict
 
@@ -59,6 +59,10 @@ def domain_frequency(array_of_dicts, key):
     # Calcula a frequência dos domínios
     return dict(Counter(domains))
 
+def string_percentage(current, totalSize):
+        percentage = ((current + 1) / totalSize) * 100
+        return f"{percentage:.2f}%"
+
 RULES = {
     'Brasil Paralelo': {
         'domains': ['@brasilparalelo.com.br', "@email.brasilparalelo.com.br"],
@@ -80,86 +84,65 @@ RULES = {
         'domains': ['@a.mercadolivre.com.br', '@r.mercadolivre.com.br'],
         'archive': True
     }, 
-    'Estante Virtual': {
-        'domains': ['@news.estantevirtual.com.br'],
+    'CLC': {
+        'domains': ['@literaturaclassica.com.br'],
         'archive': True
     }
 }
 
 
-FROM_CLOUD = True
-CSV_SAVE = True
-MAX_RESULTS = 17000
+LOAD_FROM_CLOUD = True
+SAVE_DATA_CSV = False
+MAX_RESULTS = 200
 
 # Init
-
-client_secret_file = 'client_secret.json'
-service = init_gmail_service(client_secret_file)
+gmail_api = GmailAPI('client_secret.json')
 
 # Labels
-
-labels = list_labels(service)
+labels = gmail_api.list_labels()
 
 # Messages List
-if FROM_CLOUD:
-    messages_list = get_email_messages(service, max_results=MAX_RESULTS)
+if LOAD_FROM_CLOUD:
+    mail_list = gmail_api.get_mail_list(max_results=MAX_RESULTS)
 else:
-    messages_list = csv_to_dict("./data/emails.csv")
+    mail_list = csv_to_dict("./data/emails.csv")
 
-# Message Details
-if FROM_CLOUD:
-    details_list = []
-    for i, msg in enumerate(messages_list):
-        details = get_email_message_details(service, msg['id'])
-        details_list.append(details)
-        # Calcula a porcentagem e printa
-        percentage = ((i + 1) / len(messages_list)) * 100
-        print(f"Progress: {percentage:.2f}%")
+# Message Content
+if LOAD_FROM_CLOUD:
+    mail_list_fullcontent = []
+    for i, msg in enumerate(mail_list):
+        details = gmail_api.get_mail_content(msg['id']) # Get mail content
+        mail_list_fullcontent.append(details) # Append result to the array
+        print(f"Progress: {string_percentage(i, len(mail_list))}% | {extract_email(details['sender'])} / {details['subject']} / {msg['id']}") # Print progress
 
-    if CSV_SAVE:
-        dict_list_to_csv(details_list, "data/emails.csv")
+    if SAVE_DATA_CSV:
+        dict_list_to_csv(mail_list_fullcontent, "data/emails.csv")
 
-# exit()
-print(details_list[1])
-
-# Run rules
+#Rules
 for label_string in RULES:
         rule_domains = RULES[label_string]["domains"]
         rule_acrhive = RULES[label_string]["archive"]
         label = find_labels_by_name(labels, label_string)
 
         # Find the message that matches the rule.
-        for message in details_list:
+        for message in mail_list_fullcontent:
             domain = extract_email_domain(message['sender']) # Extract @something.com.br
             if domain in rule_domains: # Match
-                print(message)
                 if label is not None and "id" in label:
-                    add_label_to_email(service, message["id"], label["id"])
+                    gmail_api.add_label_to_email(message["id"], label["id"])
                 else:
-                    label = create_label(service, label_string)
-                    add_label_to_email(service, message["id"], label["id"])
+                    label = gmail_api.create_label(label_string)
+                    gmail_api.add_label_to_email(message["id"], label["id"])
 
                 if rule_acrhive:
-                    archive_email(service, message["id"])
-
-   
-# print(messages[0])
-# print(find_labels_by_name(labels, "Teste")["id"])
-
-# archive_email(service, messages[0]["id"])
-# add_label_to_email(service, messages[0]["id"], find_labels_by_name(labels, "Teste")["id"])
-
-# details_list = []
-
-
-
-# 
+                    gmail_api.archive_email(message["id"])
 
 
 
 
 
 
-# Actions!
-# fr = domain_frequency(messages, "sender")
-# print(fr)
+
+# # Actions!
+# # fr = domain_frequency(messages, "sender")
+# # print(fr)
