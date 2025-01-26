@@ -1,11 +1,6 @@
 token.json
 client_secret.json
-emails.csv
-fr.csv
+venv/
+data/*
 token files/*
-bin/*
-include/*
-lib/*
-lib64/*
-share/*
-__pycache__/*
+__pycache__

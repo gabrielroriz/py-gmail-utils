@@ -1,3 +1,3 @@
-source ./bin/activate && ipython --InteractiveShellApp.exec_files="['./preload.py']"
+source ./venv/bin/activate && ipython --InteractiveShellApp.exec_files="['./src/preload.py']"
 
 # deactivate

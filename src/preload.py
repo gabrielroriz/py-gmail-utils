@@ -1,6 +1,9 @@
 from google_apis import init_gmail_service, get_email_messages, get_email_message_details, add_label_to_email, list_labels, archive_email, create_label
-from csv_handler import dict_list_to_csv, csv_to_dict
+
+from src.csv_handler import dict_list_to_csv, csv_to_dict
+
 import re
+
 from collections import Counter
 
 def extract_email_domain(text):
@@ -68,12 +71,25 @@ RULES = {
     'ClickUp':{
         'domains': ['@tasks.clickup.com'],
         'archive': True
+    }, 
+    'ByteByteGo': {
+        'domains': ['bytebytego@substack.com'],
+        'archive': True
+    },
+    'Mercado Livre': {
+        'domains': ['@a.mercadolivre.com.br', '@r.mercadolivre.com.br'],
+        'archive': True
+    }, 
+    'Estante Virtual': {
+        'domains': ['@news.estantevirtual.com.br'],
+        'archive': True
     }
 }
 
+
 FROM_CLOUD = True
-CSV_SAVE = False
-MAX_RESULTS = 200
+CSV_SAVE = True
+MAX_RESULTS = 17000
 
 # Init
 
@@ -88,7 +104,7 @@ labels = list_labels(service)
 if FROM_CLOUD:
     messages_list = get_email_messages(service, max_results=MAX_RESULTS)
 else:
-    messages_list = csv_to_dict("./emails.csv")
+    messages_list = csv_to_dict("./data/emails.csv")
 
 # Message Details
 if FROM_CLOUD:
@@ -101,9 +117,10 @@ if FROM_CLOUD:
         print(f"Progress: {percentage:.2f}%")
 
     if CSV_SAVE:
-        dict_list_to_csv(details_list, "emails.csv")
+        dict_list_to_csv(details_list, "data/emails.csv")
 
 # exit()
+print(details_list[1])
 
 # Run rules
 for label_string in RULES:
@@ -116,7 +133,7 @@ for label_string in RULES:
             domain = extract_email_domain(message['sender']) # Extract @something.com.br
             if domain in rule_domains: # Match
                 print(message)
-                if label["id"] != None:
+                if label is not None and "id" in label:
                     add_label_to_email(service, message["id"], label["id"])
                 else:
                     label = create_label(service, label_string)
