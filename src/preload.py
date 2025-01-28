@@ -1,10 +1,20 @@
 from src.google_apis import GmailAPI
 
+from multiprocessing import Pool
+
 from src.csv_handler import dict_list_to_csv, csv_to_dict
 
 import re
 
 from collections import Counter
+
+import os
+
+import sys
+
+import time
+
+from tqdm import tqdm
 
 def extract_email_domain(text):
     """
@@ -77,7 +87,7 @@ RULES = {
         'archive': True
     }, 
     'ByteByteGo': {
-        'domains': ['bytebytego@substack.com'],
+        'domains': ['@substack.com'],
         'archive': True
     },
     'Mercado Livre': {
@@ -94,35 +104,63 @@ RULES = {
     }
 }
 
-
 LOAD_FROM_CLOUD = True
 SAVE_DATA_CSV = False
-MAX_RESULTS = 10
+MAX_RESULTS = 2000
 
-# Init
+##########
+# INIT #
+##########
 gmail_api = GmailAPI('client_secret.json')
 
-# Labels
+##########
+# LABELS #
+##########
 labels = gmail_api.list_labels()
 
-# Messages List
+################
+# MESSAGE LIST #
+################
+
 if LOAD_FROM_CLOUD:
     mail_list = gmail_api.get_mail_list(max_results=MAX_RESULTS)
 else:
     mail_list = csv_to_dict("./data/emails.csv")
 
-# Message Content
+###################
+# MESSAGE CONTENT #
+###################
+
 if LOAD_FROM_CLOUD:
-    mail_list_fullcontent = []
-    for i, msg in enumerate(mail_list):
-        details = gmail_api.get_mail_content(msg['id']) # Get mail content
-        mail_list_fullcontent.append(details) # Append result to the array
-        print(f"Progress: {string_percentage(i, len(mail_list))}% | {extract_email(details['sender'])} / {details['subject']} / {msg['id']}") # Print progress
+    def init_gmail_api():
+        global gmail_api
+        gmail_api = GmailAPI('client_secret.json')
+        
+    def get_mail_content(msg):
+        return gmail_api.get_mail_content(msg['id'])
+
+    # Inicia a contagem de tempo
+    start_parallel = time.perf_counter() 
+
+    # TODO: Estudar melhor a diferença entre o pool.imap do pool.map
+    with Pool(processes=os.cpu_count(), initializer=init_gmail_api) as pool:
+        mail_list_fullcontent = list(
+            tqdm(
+                pool.imap(get_mail_content, mail_list), 
+                total=len(mail_list), 
+                desc="Processando e-mails"
+            )
+        )
+
+    end_parallel = time.perf_counter()
+    print(f"[PARALELO] Tempo total: {end_parallel - start_parallel:.4f} segundos")
 
     if SAVE_DATA_CSV:
         dict_list_to_csv(mail_list_fullcontent, "data/emails.csv")
 
-#Rules
+#########
+# RULES #
+#########
 for label_string in RULES:
         rule_domains = RULES[label_string]["domains"]
         rule_acrhive = RULES[label_string]["archive"]
