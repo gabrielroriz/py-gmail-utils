@@ -1,12 +1,13 @@
 import csv
 
-def dict_list_to_csv(dict_list, file_name):
+def dict_list_to_csv(dict_list, file_name, exclude_fields=None):
     """
-    Transforma uma lista de dicionários em um arquivo CSV.
+    Transforma uma lista de dicionários em um arquivo CSV, permitindo a exclusão de campos específicos.
 
     Args:
         dict_list (list): Lista de dicionários.
         file_name (str): Nome do arquivo CSV a ser criado.
+        exclude_fields (list, optional): Lista de campos a serem excluídos do CSV. Padrão é None.
 
     Returns:
         None
@@ -14,9 +15,12 @@ def dict_list_to_csv(dict_list, file_name):
     # Verifica se a lista não está vazia
     if not dict_list:
         raise ValueError("A lista de dicionários está vazia.")
+    
+    # Se exclude_fields não for fornecido, define como uma lista vazia
+    exclude_fields = set(exclude_fields) if exclude_fields else set()
 
-    # Obtém os cabeçalhos do CSV das chaves do primeiro dicionário
-    headers = dict_list[0].keys()
+    # Obtém os cabeçalhos do CSV, excluindo os campos especificados
+    headers = [key for key in dict_list[0].keys() if key not in exclude_fields]
 
     # Cria e escreve o arquivo CSV
     with open(file_name, mode='w', newline='', encoding='utf-8') as file:
@@ -25,10 +29,11 @@ def dict_list_to_csv(dict_list, file_name):
         # Escreve os cabeçalhos
         writer.writeheader()
 
-        # Escreve os dados
+        # Escreve os dados, excluindo os campos especificados
         for row in dict_list:
-            writer.writerow(row)
-
+            filtered_row = {key: value for key, value in row.items() if key not in exclude_fields}
+            writer.writerow(filtered_row)
+    
     print(f"Arquivo CSV '{file_name}' criado com sucesso!")
 
 def csv_to_dict(csv_file_path):

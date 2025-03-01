@@ -1,6 +1,8 @@
 import os
 import base64
 
+import re
+
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -10,7 +12,6 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
-
 
 class GmailAPI:
     service = None
@@ -270,6 +271,42 @@ class GmailAPI:
             print(f"Erro ao criar marcador '{label_name}': {e}")
             return None
 
+def gmail_get_email_domain(text):
+    """
+    Extrai o domínio (parte após o @, incluindo o @) de um e-mail presente na string.
+    
+    :param text: String que contém o e-mail dentro de "<>".
+    :return: O domínio do e-mail (incluindo o @) ou None se não for encontrado.
+    """
+    if not text:
+        return None
+
+    email_regex = r"<([^>]+)>"
+    match = re.search(email_regex, text, re.IGNORECASE)  
+    
+    if match:
+        email = match.group(1)  # Extrai o e-mail completo
+        at_domain = email[email.index('@'):]  # Pega o @ e o que vem depois
+        return at_domain
+    return None
+
+def gmail_get_email(text):
+    """
+    Extrai o e-mail de uma string no formato "Texto <email@example.com>".
+    
+    :param text: String que contém o e-mail dentro de "<>".
+    :return: O e-mail extraído ou None se não for encontrado.
+    """
+    email_regex = r"<([^>]+)>"
+    match = re.search(email_regex, text, re.IGNORECASE)
+    return match.group(1) if match else None
+
+def gmail_get_label_by_name(labels, name):
+    for label in labels:
+        if label['name'] == name:
+            return label
+            
+    return None
 
 
 
