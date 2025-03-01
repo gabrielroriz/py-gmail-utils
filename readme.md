@@ -1,5 +1,5 @@
-
-# Installation
+# Back-end Install
+- Go to `backend` folder
 - Create virtual env: `python3 -m venv venv`
 - Activate virtual env: `source ./venv/bin/activate`
 - Install requirements: `pip install -r requirements.txt`
