@@ -1,27 +1,15 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { Table, Tag } from "antd";
-import { EmailList } from "../Main.types";
+import { useEffect, useState, useMemo } from "react";
 
+// Components
+import { Table, Tag } from "antd";
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 
-function getDomainFromSender(sender: string) {
-    console.log("Processing sender:", sender); // Verifique o que está chegando
-    const match = sender.match(/<([^>]+)>/);
-    let emailAddress = "";
+// Utils
+import { getEmailQuantityByDomain } from "../../utils/gmailUtils";
 
-    if (match && match[1]) {
-        emailAddress = match[1];
-    } else {
-        emailAddress = sender;
-    }
-
-    const atIndex = emailAddress.indexOf("@");
-    if (atIndex !== -1) {
-        return emailAddress.substring(atIndex);
-    }
-    return "(domínio desconhecido)";
-}
+// Types
+import { EmailList } from "../Main.types";
 
 
 function GmailLikeList({ data = [] }: { data: EmailList }) {
@@ -31,22 +19,8 @@ function GmailLikeList({ data = [] }: { data: EmailList }) {
         setEmails(data);
     }, [data]);
 
-    // Computamos a contagem de emails por domínio
-    const domainData = useMemo(() => {
-        const counts: Record<string, number> = {};
+    const domainData = useMemo(() => getEmailQuantityByDomain(emails), [emails]);
 
-        emails.forEach((email) => {
-            const domain = getDomainFromSender(email.sender);
-            counts[domain] = (counts[domain] || 0) + 1;
-        });
-
-        return Object.entries(counts).map(([domain, count]) => ({
-            domain,
-            count,
-        }));
-    }, [emails]);
-
-    const sortedDomainData = [...domainData].sort((a, b) => b.count - a.count); // Ordena em ordem decrescente
 
     const barConfig = {
         chart: {
@@ -56,7 +30,7 @@ function GmailLikeList({ data = [] }: { data: EmailList }) {
             text: 'Quantidade de E-mails por Domínio'
         },
         xAxis: {
-            categories: sortedDomainData.map(item => item.domain), // Domínios ordenados
+            categories: domainData.map(item => item.domain), // Domínios ordenados
             title: {
                 text: 'Domínio'
             },
@@ -78,7 +52,7 @@ function GmailLikeList({ data = [] }: { data: EmailList }) {
         },
         series: [{
             name: 'E-mails',
-            data: sortedDomainData.map(item => item.count), // Dados ordenados
+            data: domainData.map(item => item.count), // Dados ordenados
             colorByPoint: true // Mantém cores diferentes para cada barra
         }]
     };
@@ -111,7 +85,7 @@ function GmailLikeList({ data = [] }: { data: EmailList }) {
                 <>
                     {tags && tags.split(",").map((tag: string) => {
                         return (
-                            <Tag key={tag}>
+                            <Tag key={tag} style={{}}>
                                 {tag.toUpperCase()}
                             </Tag>
                         );

@@ -90,12 +90,12 @@ def init_gmail_api():
     global gmail_api
     gmail_api = GmailAPI('client_secret.json')
         
-def get_mail_content(msg):
+def get_mail_content(msg):    
     return gmail_api.get_mail_content(msg['id'])
 
 # labels = gmail_api.list_labels()
 
-def get_mail(max_results = 1000, from_cloud=True, csv_persist=False):
+def get_mail(max_results = 1000, from_cloud=True, csv_persist=False, request=None):
 
     # Get mail list (without content)
     if from_cloud:
