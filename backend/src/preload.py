@@ -86,28 +86,30 @@ LOAD_FROM_CLOUD = False
 SAVE_DATA_CSV = False
 SAVE_FREQUENCY = False
 
-
-def get_mail_base(max_results = 1000):
+def init_gmail_api():
+    global gmail_api
     gmail_api = GmailAPI('client_secret.json')
-    labels = gmail_api.list_labels()
+        
+def get_mail_content(msg):
+    return gmail_api.get_mail_content(msg['id'])
 
-    if LOAD_FROM_CLOUD:
+# labels = gmail_api.list_labels()
+
+def get_mail(max_results = 1000, from_cloud=True, csv_persist=False):
+
+    # Get mail list (without content)
+    if from_cloud:
+        init_gmail_api()
         mail_list = gmail_api.get_mail_list(max_results=max_results)
     else:
         mail_list = csv_to_dict("./data/emails.csv")
 
-    if LOAD_FROM_CLOUD:
-        def init_gmail_api():
-            global gmail_api
-            gmail_api = GmailAPI('client_secret.json')
-            
-        def get_mail_content(msg):
-            return gmail_api.get_mail_content(msg['id'])
-
-        # Inicia a contagem de tempo
+    # For each item, get mail content.
+    if from_cloud:
+        # Start time counting.
         start_parallel = time.perf_counter() 
-
-        # TODO: Estudar melhor a diferença entre o pool.imap do pool.map
+        
+        # Get each content mail with parallel execution.
         with Pool(processes=os.cpu_count(), initializer=init_gmail_api) as pool:
             mail_list_fullcontent = list(
                 tqdm(
@@ -117,10 +119,11 @@ def get_mail_base(max_results = 1000):
                 )
             )
 
+        # End time counting
         end_parallel = time.perf_counter()
-        print(f"[PARALELO] Tempo total: {end_parallel - start_parallel:.4f} segundos")
+        print(f"Tempo total: {end_parallel - start_parallel:.4f} segundos")
 
-        if SAVE_DATA_CSV:
+        if csv_persist:
             dict_list_to_csv(mail_list_fullcontent, "data/emails.csv", ["body"])
     else:
         mail_list_fullcontent = mail_list
@@ -128,9 +131,9 @@ def get_mail_base(max_results = 1000):
     return mail_list_fullcontent
 
 
-    # if SAVE_FREQUENCY:
-    #     frequency = frequency_analysis(mail_list_fullcontent, "sender")
-    #     dict_list_to_csv(frequency, "data/fr.csv")
+# if SAVE_FREQUENCY:
+#     frequency = frequency_analysis(mail_list_fullcontent, "sender")
+#     dict_list_to_csv(frequency, "data/fr.csv")
 
 
 

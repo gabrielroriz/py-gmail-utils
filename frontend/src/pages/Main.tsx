@@ -8,6 +8,8 @@ import {
 import type { MenuProps } from 'antd';
 
 import { Breadcrumb, Layout, Menu } from 'antd';
+import useApi from '../hooks/useApi.hook';
+import GmailLikeList from './components/GmailLikeList';
 
 const { Content, Footer, Sider } = Layout;
 
@@ -39,16 +41,14 @@ const items: MenuItem[] = [
 
 const Main: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
-    const [data, setData] = useState({});
+    const [data, setData] = useState([]);
+
+    const { getMails } = useApi();
 
     useEffect(() => {
-        fetch('http://localhost:5000/')
-            .then(response => response.json())
-            .then(json => setData(json))
-            .catch(error => console.error(error));
-    }, []);
-
-    console.log({ data });
+        const requestMails = async () => setData(await getMails({ max_results: 250 }))
+        requestMails()
+    }, [])
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -62,7 +62,7 @@ const Main: React.FC = () => {
                         <Breadcrumb.Item>Bill</Breadcrumb.Item>
                     </Breadcrumb>
                     <div style={{ padding: 24, minHeight: 360 }}>
-                        Bill is not a cat.
+                        <GmailLikeList data={data} />
                     </div>
                 </Content>
                 <Footer style={{ textAlign: 'center' }}>

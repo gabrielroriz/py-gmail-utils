@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd frontend
-yarn run dev
+yarn tauri dev
