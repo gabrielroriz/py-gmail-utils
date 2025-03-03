@@ -68,7 +68,6 @@ function GmailLikeList({ data = [] }: { data: EmailList }) {
         },
         xAxis: {
             categories: dateData.map(item => {
-                console.log(item.date);
                 return new Date(item.date).toLocaleDateString("pt-BR", { year: 'numeric', month: 'long', day: 'numeric' })
             }),// Domínios ordenados
             title: {

@@ -8,7 +8,7 @@ export default () => {
 
     function objectToUrlParams(obj = {}) {
         const params = Object.keys(obj)
-            .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(obj[key]))
+            .map(key => obj[key] ? encodeURIComponent(key) + '=' + encodeURIComponent(obj[key]) : null)
             .join('&');
 
         return params ? '?' + params : '';
@@ -22,7 +22,7 @@ export default () => {
         setLoading(current => current.filter((item) => item !== id))
     }
 
-    const getMails = useCallback(async (params: Record<string, string> = {}) => {
+    const getMails = useCallback(async (params: Record<string, string | null> = {}) => {
         const id = "GET_MAILS";
 
         try {
@@ -34,6 +34,18 @@ export default () => {
         }
     }, []);
 
+    const getCsvDatabases = useCallback(async (params: Record<string, string | null> = {}) => {
+        const id = "GET_CSV_DATABASES";
 
-    return { loading, getMails }
+        try {
+            addLoading(id);
+            const response = await fetch(`${baseUrl}/db${objectToUrlParams(params)}`);
+            return response.json();
+        } finally {
+            removeLoading(id);
+        }
+    }, []);
+
+
+    return { loading, getMails, getCsvDatabases }
 }

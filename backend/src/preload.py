@@ -135,6 +135,41 @@ class GmailFetcher:
             return results
 
 
+class DbFetcher:
+    def __init__(self):
+        pass
+
+    async def get_csv_databses(
+        self,
+        request: Request,
+    ):
+        try:
+           return {"data": sorted(os.listdir("./data/emails"), reverse=True)}
+        except:
+            return {"data": []}
+            
+        
+        
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #########
 # RULES #
 #########

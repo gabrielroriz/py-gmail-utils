@@ -1,32 +1,53 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Layout, Spin, Form, InputNumber, Button } from 'antd';
-import SideMenu from './components/SideMenu'; // Novo componente para o menu lateral
-import GmailLikeList from './components/GmailLikeList'; // Mantido como estava
+import { Layout, Spin, Form, InputNumber, Button, Select } from 'antd';
+import { SyncOutlined } from '@ant-design/icons'; // Importa o ícone de recarregar
+import SideMenu from './components/SideMenu';
+import GmailLikeList from './components/GmailLikeList';
 import useApi from '../hooks/useApi.hook';
-import { getQueryParam, updateURL } from '../utils/urlUtils'; // Funções utilitárias extraídas
-import BreadcrumbNav from './components/BreadcrumbNav'; // Novo componente para breadcrumb
+import { getQueryParam, updateURL } from '../utils/urlUtils';
+import BreadcrumbNav from './components/BreadcrumbNav';
 
 const { Content, Footer } = Layout;
+const { Option } = Select;
 
 const MAX_RESULTS_DEFAULT = 250;
 
+
 const Main: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
-    const { loading, getMails } = useApi();
+    const { loading, getMails, getCsvDatabases } = useApi();
     const hasFetched = useRef(false);
 
-    const [maxResults, setMaxResults] = useState(getQueryParam('max_results') || MAX_RESULTS_DEFAULT);
+    const [databases, setDatabases] = useState<string[]>([]);
+
+    // Data
     const [data, setData] = useState([]);
+
+    // Filters
+    const [maxResults, setMaxResults] = useState(getQueryParam('max_results') || MAX_RESULTS_DEFAULT);
+    const [selectedDatabase, setSelectedDatabase] = useState(getQueryParam('database'));
 
     const fetchMails = async () => {
         updateURL(maxResults);
-        setData(await getMails({ max_results: String(maxResults), csv_persist: "true" }));
+        setData(await getMails({
+            max_results: String(maxResults),
+            csv_persist: "true",
+            // database: selectedDatabase // Passa o banco de dados selecionado
+        }));
+    };
+
+
+    const fetchCsvDatabases = async () => {
+        // updateURL(maxResults);
+        const response = await getCsvDatabases();
+        setDatabases(response.data);
     };
 
     useEffect(() => {
         if (hasFetched.current) return;
         hasFetched.current = true;
         fetchMails();
+        fetchCsvDatabases();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -40,13 +61,39 @@ const Main: React.FC = () => {
                         <Form.Item label="Max Results">
                             <InputNumber
                                 min={1}
-                                // max={1000}
                                 value={maxResults}
                                 onChange={(value) => setMaxResults(value || 1)}
                             />
                         </Form.Item>
+                        <Form.Item label="Database">
+                            <Select
+                                style={{ width: 250 }}
+                                value={selectedDatabase}
+                                onChange={setSelectedDatabase}
+                            >
+                                {databases.map(db => (
+                                    <Option key={db} value={db}>
+                                        {db}
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
                         <Form.Item>
-                            <Button type="primary" onClick={fetchMails} disabled={loading.length > 0}>
+                            <Button
+                                icon={<SyncOutlined />}
+                                onClick={fetchCsvDatabases}
+                                disabled={loading.length > 0}
+                                style={{ marginRight: 8 }}
+                            >
+                                Refresh
+                            </Button>
+                        </Form.Item>
+                        <Form.Item>
+                            <Button
+                                type="primary"
+                                onClick={fetchMails}
+                                disabled={loading.length > 0}
+                            >
                                 Buscar E-mails
                             </Button>
                         </Form.Item>
