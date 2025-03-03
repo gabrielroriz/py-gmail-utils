@@ -30,3 +30,23 @@ export function getEmailQuantityByDomain(emails: EmailList) {
         count,
     })).sort((a, b) => b.count - a.count);
 }
+
+export function getEmailQuantityByDate(emails: EmailList) {
+    const counts: Record<string, number> = {};
+
+    emails.forEach((email) => {
+        const dateObj = new Date(email.date);
+
+        if (isNaN(dateObj.getTime())) {
+            console.warn(`Invalid date detected: "${email.date}" - Skipping this email.`);
+            return; // Skip invalid dates
+        }
+
+        const date = dateObj.toISOString().split("T")[0]; // Extract YYYY-MM-DD
+        counts[date] = (counts[date] || 0) + 1;
+    });
+
+    return Object.entries(counts)
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Sort by date (descending)
+}

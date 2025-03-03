@@ -1,6 +1,6 @@
 from google_apis import GmailAPI, gmail_get_label_by_name, gmail_get_email, gmail_get_email_domain
 
-from multiprocessing import Pool
+from multiprocessing import Pool, Value
 
 from csv_handler import dict_list_to_csv, csv_to_dict
 
@@ -18,127 +18,123 @@ from tqdm import tqdm
 
 from collections import Counter
 
-def frequency_analysis(data, field_name):
-    # Contar a ocorrência dos valores do campo especificado
+from fastapi import Request
 
-    field_values = [item[field_name] for item in data if field_name in item]
-    field_values = [gmail_get_email_domain(field_value) for field_value in field_values] # Only @something.com.br
+import asyncio
 
-    counts = Counter(field_values)
+from utils import generate_csv_db_name
 
-    # Calcular o total de ocorrências
-    total = sum(counts.values())
+# RULES = {
+#     # 'Brasil Paralelo': {
+#     #     'domains': ['@brasilparalelo.com.br', "@email.brasilparalelo.com.br"],
+#     #     'archive': True
+#     # },
+#     # 'Italo Marsili': {
+#     #     'domains': ['@italomarsili.com.br'],
+#     #     'archive': True
+#     # },
+#     # 'ClickUp':{
+#     #     'domains': ['@tasks.clickup.com'],
+#     #     'archive': True
+#     # }, 
+#     # 'ByteByteGo': {
+#     #     'domains': ['@substack.com'],
+#     #     'archive': True
+#     # },
+#     # 'Mercado Livre': {
+#     #     'domains': ['@a.mercadolivre.com.br', '@r.mercadolivre.com.br'],
+#     #     'archive': True
+#     # }, 
+#     # 'CLC': {
+#     #     'domains': ['@literaturaclassica.com.br'],
+#     #     'archive': True
+#     # },
+#     # 'CitizenGo': {
+#     #     'domains': ['@citizengo.org'],
+#     #     'archive': True
+#     # },
+#     "Experts In": {
+#         'domains': ['@orodrigogurgel.com.br'],
+#         'archive': True
+#     }
+# }
+
+from google_apis import GmailAPI
+from multiprocessing import Pool
+from csv_handler import dict_list_to_csv, csv_to_dict
+from fastapi import Request
+import time
+from tqdm import tqdm
+import os
+from typing import List, Dict, Any, Optional
+
+# Configurações globais (podem ser movidas para um arquivo de configuração)
+DEFAULT_MAX_RESULTS = 1000
+CSV_EMAILS_DIR = "data/emails/"
+CONTENT_FIELD = "body"
+
+class GmailFetcher:
+    """Classe para encapsular a lógica de busca de e-mails do Gmail."""
+
+    def __init__(self):
+        self.gmail_api = GmailAPI('client_secret.json')
     
-    # Criar a lista de resultados em ordem decrescente de frequência
-    result = sorted([
-        {
-            "name": name,
-            "frequency": count,
-            "percentage": f"{(count / total) * 100:.0f}%"
-        }
-        for name, count in counts.items()
-    ], key=lambda x: x["frequency"], reverse=True)
-    
-    return result
+    def _fetch_mail_list(self, max_results: int) -> List[Dict[str, Any]]:
+        """Busca a lista de e-mails sem conteúdo."""
+        return self.gmail_api.get_mail_list(max_results=max_results)
 
+    def _get_mail_content(self, msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Busca o conteúdo de um e-mail específico."""
+        return self.gmail_api.get_mail_content(msg['id'])
 
-def string_percentage(current, totalSize):
-        percentage = ((current + 1) / totalSize) * 100
-        return f"{percentage:.2f}%"
-
-RULES = {
-    # 'Brasil Paralelo': {
-    #     'domains': ['@brasilparalelo.com.br', "@email.brasilparalelo.com.br"],
-    #     'archive': True
-    # },
-    # 'Italo Marsili': {
-    #     'domains': ['@italomarsili.com.br'],
-    #     'archive': True
-    # },
-    # 'ClickUp':{
-    #     'domains': ['@tasks.clickup.com'],
-    #     'archive': True
-    # }, 
-    # 'ByteByteGo': {
-    #     'domains': ['@substack.com'],
-    #     'archive': True
-    # },
-    # 'Mercado Livre': {
-    #     'domains': ['@a.mercadolivre.com.br', '@r.mercadolivre.com.br'],
-    #     'archive': True
-    # }, 
-    # 'CLC': {
-    #     'domains': ['@literaturaclassica.com.br'],
-    #     'archive': True
-    # },
-    # 'CitizenGo': {
-    #     'domains': ['@citizengo.org'],
-    #     'archive': True
-    # },
-    "Experts In": {
-        'domains': ['@orodrigogurgel.com.br'],
-        'archive': True
-    }
-}
-
-
-LOAD_FROM_CLOUD = False
-SAVE_DATA_CSV = False
-SAVE_FREQUENCY = False
-
-def init_gmail_api():
-    global gmail_api
-    gmail_api = GmailAPI('client_secret.json')
+    async def fetch_emails(
+        self,
+        request: Request,
+        max_results: int = DEFAULT_MAX_RESULTS,
+        from_cloud: bool = True,
+        csv_persist: bool = False
+    ) -> List[Dict[str, Any]]:
         
-def get_mail_content(msg):    
-    return gmail_api.get_mail_content(msg['id'])
+        # Obtém a lista de e-mails
+        mail_list = (
+            self._fetch_mail_list(max_results) 
+            # if from_cloud else csv_to_dict(CSV_EMAILS_DIR)
+        )
 
-# labels = gmail_api.list_labels()
+        if not from_cloud:
+            return mail_list  # Retorna diretamente se não for do cloud
 
-def get_mail(max_results = 1000, from_cloud=True, csv_persist=False, request=None):
-
-    # Get mail list (without content)
-    if from_cloud:
-        init_gmail_api()
-        mail_list = gmail_api.get_mail_list(max_results=max_results)
-    else:
-        mail_list = csv_to_dict("./data/emails.csv")
-
-    # For each item, get mail content.
-    if from_cloud:
-        # Start time counting.
-        start_parallel = time.perf_counter() 
+        # Processa os e-mails em paralelo / Calcula e exibe o tempo total
+        start_time = time.perf_counter()
+        mail_list_fullcontent = await self._process_emails_in_parallel(request, mail_list)
+        end_time = time.perf_counter()
+        print(f"Tempo total: {end_time - start_time:.4f} segundos")
         
-        # Get each content mail with parallel execution.
-        with Pool(processes=os.cpu_count(), initializer=init_gmail_api) as pool:
-            mail_list_fullcontent = list(
-                tqdm(
-                    pool.imap(get_mail_content, mail_list), 
-                    total=len(mail_list), 
-                    desc="Processando e-mails"
-                )
-            )
-
-        # End time counting
-        end_parallel = time.perf_counter()
-        print(f"Tempo total: {end_parallel - start_parallel:.4f} segundos")
-
+        # Persiste em CSV, se solicitado
         if csv_persist:
-            dict_list_to_csv(mail_list_fullcontent, "data/emails.csv", ["body"])
-    else:
-        mail_list_fullcontent = mail_list
+            dict_list_to_csv(mail_list_fullcontent, f"{CSV_EMAILS_DIR}{generate_csv_db_name(len(mail_list_fullcontent))}.csv", [CONTENT_FIELD])
 
-    return mail_list_fullcontent
+        return mail_list_fullcontent
+
+    async def _process_emails_in_parallel(self, request: Request, mail_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Processa os e-mails em paralelo usando multiprocessing."""
+        with Pool(processes=os.cpu_count()) as pool:
+            results = []
+            iterator = pool.imap(self._get_mail_content, mail_list)
+
+            for result in tqdm(iterator, total=len(mail_list), desc="Downloading emails content"):
+                if await request.is_disconnected():
+                    print("Client disconnected, stopping processing...")
+                    pool.terminate()
+                    break
+                if result:
+                    results.append(result)
+
+            pool.close()
+            pool.join()
+            return results
 
 
-# if SAVE_FREQUENCY:
-#     frequency = frequency_analysis(mail_list_fullcontent, "sender")
-#     dict_list_to_csv(frequency, "data/fr.csv")
-
-
-
-
-# sys.exit(0)
 #########
 # RULES #
 #########

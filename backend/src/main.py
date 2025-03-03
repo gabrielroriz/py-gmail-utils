@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from preload import get_mail
+from preload import GmailFetcher
 
 # Configure logging
 logging.basicConfig(level=logging.ERROR)  # Set to ERROR or DEBUG as needed
@@ -24,12 +24,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+gmail_fetcher = GmailFetcher()
+
 @app.get("/")
-async def get_mails(max_results: Optional[int] = None, 
+async def get_mails(request: Request, 
+                    max_results: Optional[int] = None, 
                     from_cloud:Optional[bool] = True, 
                     csv_persist:Optional[bool] = False):
     try:
-        return get_mail(max_results, from_cloud, csv_persist)
+        return await gmail_fetcher.fetch_emails(request, max_results, from_cloud, csv_persist)
     except Exception as e:
         logger.error(f"Error fetching mail base: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
