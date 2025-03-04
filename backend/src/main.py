@@ -45,6 +45,15 @@ async def get_databases(request: Request):
     except Exception as e:
         logger.error(f"Error fetching mail base: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
+    
+@app.post("/filter")
+async def create_filter(request: Request,
+                        sender_email: str):
+    try:
+        return await gmail_fetcher.create_filter(request, sender_email)
+    except Exception as e:
+        logger.error(f"Error creating filter: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True, timeout_keep_alive=7200) #2h timeout

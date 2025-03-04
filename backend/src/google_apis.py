@@ -16,7 +16,7 @@ from google.auth.transport.requests import Request
 class GmailAPI:
     service = None
     
-    def __init__(self, client_file, api_name='gmail', api_version='v1', scopes=['https://mail.google.com/']):
+    def __init__(self, client_file, api_name='gmail', api_version='v1', scopes=['https://mail.google.com/', 'https://www.googleapis.com/auth/gmail.settings.basic', 'https://www.googleapis.com/auth/gmail.modify']):
         if self.service is None:
             self.service = self._create_service(client_file, api_name, api_version, scopes)
         else:
@@ -122,17 +122,19 @@ class GmailAPI:
         payload = message['payload']
         headers = payload.get('headers', [])
 
-        # Use 'subject' as a string literal
-        subject = next((header['value'] for header in headers if header['name'].lower() == 'subject'), None)
-        if not subject:
-            subject = message.get('subject', 'No subject')
+        # Extrair informações básicas
+        subject = next((header['value'] for header in headers if header['name'].lower() == 'subject'), None) or 'No subject'
         sender = next((header['value'] for header in headers if header['name'] == 'From'), 'No sender')
         recipients = next((header['value'] for header in headers if header['name'] == 'To'), 'No recipients')
         snippet = message.get('snippet', 'No snippet')
         has_attachments = any(part.get('filename') for part in payload.get('parts', []) if part.get('filename'))
         date = next((header['value'] for header in headers if header['name'] == 'Date'), 'No date')
-        star = message.get('labelIds', []).count('STARRED') > 0
+        star = 'STARRED' in message.get('labelIds', [])
         label = ', '.join(message.get('labelIds', []))
+
+        # Verificar se há link de unsubscribe
+        unsubscribe_link = next((header['value'] for header in headers if header['name'].lower() == 'list-unsubscribe'), None)
+        has_unsubscribe = unsubscribe_link is not None
 
         body = self._extract_body(payload)
 
@@ -146,9 +148,11 @@ class GmailAPI:
             'has_attachments': has_attachments,
             'date': date,
             'star': star,
-            'label': label
+            'label': label,
+            'has_unsubscribe': has_unsubscribe,
+            'unsubscribe_link': unsubscribe_link  # Opcional: retorna o link
         }
-    
+
     def add_label_to_email(self, msg_id, label_id, user_id='me'):
         """
         Adiciona um marcador a um e-mail específico.
@@ -270,6 +274,69 @@ class GmailAPI:
         except Exception as e:
             print(f"Erro ao criar marcador '{label_name}': {e}")
             return None
+        
+    def create_filter(self, sender_email):
+        label_name = f"{sender_email}"
+        label_id = None
+
+        labels = self.list_labels(user_id="me")
+
+        for label in labels:
+            if label['name'] == label_name:
+                label_id = label['id']
+                break
+        
+        if not label_id:
+            new_label = self.create_label(label_name, user_id="me")
+            label_id = new_label['id'] if new_label else None
+            
+        if not label_id:
+            print(f"Não foi possível criar ou encontrar o marcador '{label_name}'.")
+            return
+
+        try:
+            # Define o critério do filtro
+            filter_object = {
+                'criteria': {
+                    'from': sender_email  # Mail
+                },
+                'action': {
+                    'addLabelIds': [label_id], # Add Label
+                    'removeLabelIds': ['INBOX']  # Archive
+                }
+            }
+            # Cria o filtro
+            result = self.service.users().settings().filters().create(userId='me', body=filter_object).execute()
+            print('Filtro criado:', result)
+
+            # Realiza a busca pelas mensagens que correspondem ao filtro
+            query = f'from:{sender_email.strip()} is:inbox'
+            results = self.service.users().messages().list(userId='me', q=query, maxResults=2000).execute()
+            messages = results.get('messages', [])
+
+            if not messages:
+                print('Nenhuma mensagem encontrada.')
+            else:
+                for message in messages:
+                    msg = self.service.users().messages().get(userId='me', id=message['id']).execute()
+
+                    # Aplica as ações (arquivar e adicionar etiqueta)
+                    self.service.users().messages().modify(
+                        userId='me',
+                        id=message['id'],
+                        body={
+                            'addLabelIds': [label_id],   # Adiciona a etiqueta
+                            'removeLabelIds': ['INBOX']  # Remove da Caixa de Entrada (arquiva)
+                        }
+                    ).execute()
+
+                print(f'{len(messages)} mensagens modificadas.')
+            return result
+
+        except Exception as error:
+            print(f'Ocorreu um erro ao criar o filtro: {error}')
+            return None
+    
 
 def gmail_get_email_domain(text):
     """

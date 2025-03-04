@@ -9,6 +9,8 @@ export type Email = {
     date: string;
     star: boolean;
     label: string;
+    has_unsubscribe: boolean;
+    unsubscribe_link: string;
 };
 
 export type EmailList = Email[];

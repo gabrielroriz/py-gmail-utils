@@ -133,7 +133,13 @@ class GmailFetcher:
             pool.close()
             pool.join()
             return results
-
+        
+    async def create_filter(self, request: Request, sender_email: str):
+        try:
+            return self.gmail_api.create_filter(sender_email)
+        except Exception as e:
+            return e
+        
 
 class DbFetcher:
     def __init__(self):
